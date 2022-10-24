@@ -1,7 +1,8 @@
 use std::cmp::{Ordering, Reverse};
-use std::collections::{HashMap, BinaryHeap, binary_heap};
+use std::collections::{HashMap, BinaryHeap};
 use std::fs;
 use std::option::Option;
+use bytebuffer::ByteBuffer;
 
 #[derive(PartialEq, Eq, PartialOrd, Debug)]
 pub struct Node {
@@ -66,27 +67,24 @@ impl Node {
 
 }
 
-fn count_characters(filename: String) -> HashMap<char, u32> {
+fn read_file(filename: String) -> String {
+    fs::read_to_string(filename).expect("File not found!")
+}
+
+fn count_characters(contents: &String) -> HashMap<char, u32> {
 
     let mut map: HashMap<char, u32> = HashMap::new();
 
-    let contents = fs::read_to_string(filename).expect("File not found!");
+    for c in contents.chars() {
 
-    for line in contents.lines() {
-
-        let chars: Vec<char> = line.chars().collect();
-
-        for c in chars {
-
-            if map.contains_key(&c){
-                let mut num: u32 = *map.get(&c).unwrap();
-                num += 1;
-                map.insert(c, num);
-            }else{
-                map.insert(c, 1);
-            }
-
+        if map.contains_key(&c){
+            let mut num: u32 = *map.get(&c).unwrap();
+            num += 1;
+            map.insert(c, num);
+        }else{
+            map.insert(c, 1);
         }
+
     }
 
     map
@@ -132,10 +130,35 @@ fn get_heap(leaves: Vec<Node>) -> BinaryHeap<Reverse<Node>> {
 
 }
 
+pub struct BitSeq {
+    value: u64,
+    index: u64,
+}
+
+impl BitSeq {
+    fn new() -> BitSeq {
+        BitSeq { value: 0, index: 0 }
+    }
+
+    // insert bit if space is left
+    fn try_add_bit(&mut self, bit : u64) -> bool {
+        if self.index < 64 {
+            if bit == 1 {
+                self.value += bit << self.index;
+            }
+            self.index += 1;
+            return true
+        }
+        false
+    }
+}
+
 fn main() {
 
     // 1. Read characters into map
-    let map = count_characters("book.txt".to_string());
+    let contents: String = read_file("book.txt".to_string());
+
+    let map = count_characters(&contents);
 
     println!("Number of unique characters: {}", map.len());
 
@@ -156,5 +179,40 @@ fn main() {
     heap.peek().unwrap().0.traverse("".to_string(), &mut codes);
 
     println!("Huffman codes: {:?}", codes);
+
+    // 4. Build a buffer
+    let mut bit_buffer : BitSeq = BitSeq::new();
+    let mut byte_buffer : ByteBuffer = ByteBuffer::new();
+
+    // for char in file
+    for c in contents.chars() {
+
+        let bits = codes.get(&c).unwrap();
+
+        for bit in bits.chars() {
+
+            if !bit_buffer.try_add_bit(bit as u64 - 48) {
+
+                // Add the u32 in bit_buffer to some sort of bytearray
+                byte_buffer.write_u64(bit_buffer.value);
+
+                bit_buffer = BitSeq::new();
+
+                bit_buffer.try_add_bit(bit as u64 - 48);
+            }
+        }
+    }
+
+    println!("{}", byte_buffer.len());
+
+    // 5. Write out to the file
+    fs::write("output.txt", byte_buffer.to_bytes()).expect("Unable to write file");
+
+    // 6. Read the file back in and decode back to strings
+
+    // 7. Encode and load the Huffman tree
+
+    // 8. clean up, separate into modules create command-line utility
+
 
 }
