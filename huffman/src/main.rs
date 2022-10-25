@@ -14,28 +14,42 @@ fn huffman_encode_string(contents: &String) -> ByteBuffer {
     // 1. Count characters by frequency
     let map = count_characters(&contents);
 
-    println!("Number of unique characters: {}", map.len());
+    println!("Done counting characters!");
 
     // 2. Sort HashMap entries by frequency
     let leaves = get_leaves(map);
 
+    println!("Done with leaves!");
+
     // 3. build heap/tree
     let heap = get_heap(leaves);
+
+    println!("Done building tree!");
 
     // 3a. get codes
     let mut codes: HashMap<char, String> = HashMap::new();
     heap.peek().unwrap().0.get_codes("".to_string(), &mut codes);
 
+    println!("Done getting codes!");
+
     // 3a. get characters
     let mut characters: String = "".to_string();
     heap.peek().unwrap().0.get_character_order(&mut characters);
+
+    println!("Done getting characters!");
 
     // 4. Encode tree  structureinto binary
     let mut binary_string = "".to_string();
     heap.peek().unwrap().0.save_tree(&mut binary_string);
 
+    println!("Done encoding tree to binary!");
+
+    let start = now.elapsed().as_millis();
+
     // 5. Build a buffer
     let byte_buffer: ByteBuffer = encode_contents(&binary_string, &characters, &contents, codes);
+
+    println!("Encoded {}kb in {}ms", byte_buffer.len() / 1000, now.elapsed().as_millis() - start);
 
     println!("Compressed {}kb file in {}ms", contents.len() / 1000, now.elapsed().as_millis());
 

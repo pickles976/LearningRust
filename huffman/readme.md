@@ -1,0 +1,5 @@
+- [x] Finish the Huffman encoding algorithm
+- [x] Finish the Huffman decoding algorithm
+- [ ] Organize the stuff better
+- [ ] Optimize with faster Hashmap
+- [ ] Fix trailing bits problem. Encode size as u32 and stop decoding when final char is read. 

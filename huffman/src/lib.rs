@@ -13,11 +13,15 @@ pub struct Node {
 }
 
 impl Ord for Node {
+
+    // TODO: why is this cmp implementation not working?
+    // Using Reverse is ugly and annoying
     fn cmp(&self, other: &Self) -> Ordering {
         self.freq.cmp(&other.freq)
     }
 }
 
+// TODO: possibly create a tree struct that holds the root node and some cleaner interfaces?
 impl Node {
 
     pub fn leaf(c: char, freq: u32) -> Node {
@@ -107,7 +111,7 @@ impl Node {
 
     }
 
-    // use bytearray to navigate tree until 
+    // use bytearray to navigate tree until we reach a leaf
     pub fn decode_bytearray(&self, output: &mut String, bit_seq: &mut BitSeq, byte_buffer: &mut ByteBuffer) {
 
         match self.c {
@@ -166,17 +170,7 @@ pub fn count_characters(contents: &String) -> HashMap<char, u32> {
 
     let mut map: HashMap<char, u32> = HashMap::new();
 
-    for c in contents.chars() {
-
-        if map.contains_key(&c){
-            let mut num: u32 = *map.get(&c).unwrap();
-            num += 1;
-            map.insert(c, num);
-        }else{
-            map.insert(c, 1);
-        }
-
-    }
+    contents.chars().for_each(|c| *map.entry(c).or_default() += 1 );
 
     map
 
@@ -246,15 +240,11 @@ pub fn encode_contents(binary_string: &String, characters: &String, contents: &S
     bit_buffer = BitSeq::new();
 
     // add chars to byte buffer
-    for c in characters.chars() {
+    characters.chars().for_each(|c| byte_buffer.write_u32(c.clone() as u32) );
 
-        byte_buffer.write_u32(c.clone() as u32);
-
-    }
-
+    // TODO: default hashmap implementation is SLOOOOOOOOOW
     // for char in file
-    for c in contents.chars() {
-
+    contents.chars().for_each(|c| {
         let bits = codes.get(&c).unwrap();
 
         for bit in bits.chars() {
@@ -269,7 +259,7 @@ pub fn encode_contents(binary_string: &String, characters: &String, contents: &S
                 bit_buffer.try_add_bit(bit as u32 - 48);
             }
         }
-    }
+    });
 
     byte_buffer.write_u32(bit_buffer.value);
     byte_buffer.write_u32(0); // EOF buffer
@@ -303,6 +293,8 @@ pub fn rebuild_tree(bit_seq: &mut BitSeq, byte_buffer: &mut ByteBuffer) -> Node 
 // It's much easier to read/write bytes with some padding.
 // It also makes it easier to test since I know that reading 
 // 8 bytes at a time wont result in some sort of weird data overlap
+// "But muh overhead!" -- writing bits directly to ByteBuffer is the same
+// speed. This is awkward but at least I can debug easier.
 pub struct BitSeq {
     pub value: u32,
     pub index: u32,
@@ -400,9 +392,9 @@ mod tests {
                         /       \
                 None, 7       None, 4
                 /    \      /       \
-            None, 4   ' '  o, 2      a, 2
+            None, 4   ' '  ?, 2      ?, 2
             /     \
-          l, 2    t, 2
+          ?, 2    ?, 2
         */
 
         // more complex tree
@@ -513,7 +505,6 @@ mod tests {
         heap.peek().unwrap().0.get_codes("".to_string(), &mut codes);
         let mut binary_string = "".to_string();
         heap.peek().unwrap().0.save_tree(&mut binary_string);
-
 
         let mut byte_buffer: ByteBuffer = encode_contents(&binary_string, &characters, &contents, codes);
         let mut byte;
