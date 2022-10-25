@@ -129,8 +129,8 @@ pub fn get_heap(leaves: Vec<Node>) -> BinaryHeap<Reverse<Node>> {
         heap.push(Reverse(node));
     }
 
-    println!("Heap size: {}", heap.len());
-    println!("Smallest element is: {:?}", heap.peek().unwrap().0);
+    // println!("Heap size: {}", heap.len());
+    // println!("Smallest element is: {:?}", heap.peek().unwrap().0);
 
     while heap.len() > 1 {
 
@@ -156,25 +156,25 @@ pub fn encode_contents(binary_string: &String, characters: Vec<char>, contents: 
     // add tree to byte buffer
     for bit in binary_string.chars() {
 
-        if !bit_buffer.try_add_bit(bit as u64 - 48) {
+        if !bit_buffer.try_add_bit(bit as u32 - 48) {
 
             // Add the u32 in bit_buffer to some sort of bytearray
-            byte_buffer.write_u64(bit_buffer.value);
+            byte_buffer.write_u32(bit_buffer.value);
 
             bit_buffer = BitSeq::new();
 
-            bit_buffer.try_add_bit(bit as u64 - 48);
+            bit_buffer.try_add_bit(bit as u32 - 48);
         }
         
     }
 
-    byte_buffer.write_u64(bit_buffer.value);
+    byte_buffer.write_u32(bit_buffer.value);
     bit_buffer = BitSeq::new();
 
     // add chars to byte buffer
     for c in characters.iter() {
 
-        byte_buffer.write_u64(c.clone() as u64);
+        byte_buffer.write_u32(c.clone() as u32);
 
     }
 
@@ -185,26 +185,30 @@ pub fn encode_contents(binary_string: &String, characters: Vec<char>, contents: 
 
         for bit in bits.chars() {
 
-            if !bit_buffer.try_add_bit(bit as u64 - 48) {
+            if !bit_buffer.try_add_bit(bit as u32 - 48) {
 
                 // Add the u32 in bit_buffer to some sort of bytearray
-                byte_buffer.write_u64(bit_buffer.value);
+                byte_buffer.write_u32(bit_buffer.value);
 
                 bit_buffer = BitSeq::new();
 
-                bit_buffer.try_add_bit(bit as u64 - 48);
+                bit_buffer.try_add_bit(bit as u32 - 48);
             }
         }
     }
 
-    byte_buffer.write_u64(bit_buffer.value);
+    byte_buffer.write_u32(bit_buffer.value);
     byte_buffer
 
 }
 
+// Why use this weird middleman for writing bits into the byte buffer?
+// It's much easier to read/write bytes with some padding.
+// It also makes it easier to test since I know that reading 
+// 8 bytes at a time wont result in some sort of weird data overlap
 pub struct BitSeq {
-    pub value: u64,
-    pub index: u64,
+    pub value: u32,
+    pub index: u32,
 }
 
 impl BitSeq {
@@ -212,9 +216,13 @@ impl BitSeq {
         BitSeq { value: 0, index: 0 }
     }
 
+    pub fn from_bytes(bytes: u32) -> BitSeq {
+        BitSeq { value: bytes, index: 0 }
+    }
+
     // insert bit if space is left
-    pub fn try_add_bit(&mut self, bit : u64) -> bool {
-        if self.index < 64 {
+    pub fn try_add_bit(&mut self, bit : u32) -> bool {
+        if self.index < 32 {
             if bit == 1 {
                 self.value += bit << self.index;
             }
@@ -222,6 +230,15 @@ impl BitSeq {
             return true
         }
         false
+    }
+
+    pub fn try_read_bit(&mut self) -> Option<u32> {
+        if self.index < 32 {
+            let bit = Some((self.value >> self.index) & 1);
+            self.index += 1;
+            return bit
+        }
+        None
     }
 }
 
@@ -328,33 +345,32 @@ mod tests {
         heap.peek().unwrap().0.save_tree(&mut binary_string);
 
 
-
         let mut byte_buffer: ByteBuffer = encode_contents(&binary_string, characters, &contents, codes);
         let mut byte;
 
-        // 8 (tree) + 8 * 3 (chars) + 8 (data) = 40 bytes
-        assert_eq!(40, byte_buffer.len());
+        // 4 (tree) + 4 * 3 (chars) + 4 (data) = 20 bytes
+        assert_eq!(20, byte_buffer.len());
         
         // tree 00111 -> 28
-        byte = byte_buffer.read_u64();
+        byte = byte_buffer.read_u32();
 
         assert_eq!(28, byte);
 
         // chars 'o', 'a', 'm'
-        byte = byte_buffer.read_u64();
+        byte = byte_buffer.read_u32();
 
-        assert_eq!('o' as u64, byte);
+        assert_eq!('o' as u32, byte);
 
-        byte = byte_buffer.read_u64();
+        byte = byte_buffer.read_u32();
 
-        assert_eq!('a' as u64, byte);
+        assert_eq!('a' as u32, byte);
 
-        byte = byte_buffer.read_u64();
+        byte = byte_buffer.read_u32();
 
-        assert_eq!('m' as u64, byte);
+        assert_eq!('m' as u32, byte);
 
         // text 0000101011 -> 336
-        byte = byte_buffer.read_u64();
+        byte = byte_buffer.read_u32();
 
         assert_eq!(848, byte);
 
