@@ -8,7 +8,7 @@ version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e822a21389d388828152aeae8bb43049196b09076e2a138f53351d8cf6576cf3"
 dependencies = [
- "byteorder",
+ "byteorder 0.3.13",
 ]
 
 [[package]]
@@ -18,8 +18,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "29b2aa490a8f546381308d68fc79e6bd753cd3ad839f7a7172897f1feedfa175"
 
 [[package]]
+name = "byteorder"
+version = "1.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "14c189c53d098945499cdfa7ecc63567cf3886b3332b312a5b4585d8d3a6a610"
+
+[[package]]
+name = "fxhash"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c31b6d751ae2c7f11320402d34e41349dd1016f8d5d45e48c4312bc8625af50c"
+dependencies = [
+ "byteorder 1.4.3",
+]
+
+[[package]]
 name = "huffman"
 version = "0.1.0"
 dependencies = [
  "bytebuffer",
+ "fxhash",
 ]

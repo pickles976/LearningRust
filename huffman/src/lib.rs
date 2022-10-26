@@ -1,5 +1,6 @@
 use std::cmp::{Ordering, Reverse};
-use std::collections::{HashMap, BinaryHeap};
+use std::collections::BinaryHeap;
+use fxhash::FxHashMap;
 use std::option::Option;
 use bytebuffer::ByteBuffer;
 
@@ -47,7 +48,7 @@ impl Node {
     }
 
     // get_codes all nodes and save char -> code mappings
-    pub fn get_codes(&self, s: String, map: &mut HashMap<char, String>){
+    pub fn get_codes(&self, s: String, map: &mut FxHashMap<char, String>){
 
         // go right
         if let Some(node) = &self.r {
@@ -156,9 +157,9 @@ impl Node {
 
 }
 
-pub fn count_characters(contents: &String) -> HashMap<char, u32> {
+pub fn count_characters(contents: &String) -> FxHashMap<char, u32> {
 
-    let mut map: HashMap<char, u32> = HashMap::new();
+    let mut map: FxHashMap<char, u32> = FxHashMap::default();
 
     contents.chars().for_each(|c| *map.entry(c).or_default() += 1 );
 
@@ -166,7 +167,7 @@ pub fn count_characters(contents: &String) -> HashMap<char, u32> {
 
 }
 
-pub fn get_leaves(map: HashMap<char, u32>) -> Vec<Node> {
+pub fn get_leaves(map: FxHashMap<char, u32>) -> Vec<Node> {
 
     let mut leaves = Vec::new();
     
@@ -205,7 +206,7 @@ pub fn get_heap(leaves: Vec<Node>) -> BinaryHeap<Reverse<Node>> {
 
 }
 
-pub fn encode_contents(binary_string: &String, characters: &String, contents: &String, codes: HashMap<char, String>) -> ByteBuffer {
+pub fn encode_contents(binary_string: &String, characters: &String, contents: &String, codes: FxHashMap<char, String>) -> ByteBuffer {
 
     let mut byte_buffer : ByteBuffer = ByteBuffer::new();
     
@@ -220,7 +221,6 @@ pub fn encode_contents(binary_string: &String, characters: &String, contents: &S
     // add chars to byte buffer
     characters.chars().for_each(|c| byte_buffer.write_u32(c.clone() as u32) );
 
-    // TODO: default hashmap implementation is SLOOOOOOOOOW
     // for char in file
     contents.chars().for_each(|c| {
         let bits = codes.get(&c).unwrap();
@@ -244,7 +244,7 @@ pub fn rebuild_tree(byte_buffer: &mut ByteBuffer) -> Node {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
+    use std::collections::FxHashMap;
 
     use bytebuffer::ByteBuffer;
 
@@ -380,7 +380,7 @@ mod tests {
         let leaves = get_leaves(map);
         let heap = get_heap(leaves);
 
-        let mut codes: HashMap<char, String> = HashMap::new();
+        let mut codes: FxHashMap<char, String> = FxHashMap::default();
         heap.peek().unwrap().0.get_codes("".to_string(), &mut codes);
 
         assert_eq!("0", codes.get(&'m').unwrap());
@@ -394,7 +394,7 @@ mod tests {
         let leaves = get_leaves(map);
         let heap = get_heap(leaves);
 
-        let mut codes: HashMap<char, String> = HashMap::new();
+        let mut codes: FxHashMap<char, String> = FxHashMap::default();
         heap.peek().unwrap().0.get_codes("".to_string(), &mut codes);
 
         assert_eq!("01", codes.get(&' ').unwrap());
@@ -412,7 +412,7 @@ mod tests {
         let heap = get_heap(leaves);
         let mut characters: String = "".to_string();
         heap.peek().unwrap().0.get_character_order(&mut characters);
-        let mut codes: HashMap<char, String> = HashMap::new();
+        let mut codes: FxHashMap<char, String> = FxHashMap::new();
         heap.peek().unwrap().0.get_codes("".to_string(), &mut codes);
         let mut binary_string = "".to_string();
         heap.peek().unwrap().0.save_tree(&mut binary_string);
