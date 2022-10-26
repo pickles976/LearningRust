@@ -1,7 +1,7 @@
-use std::{collections::HashMap, ops::DerefMut};
+use std::collections::HashMap;
 use std::fs;
 use bytebuffer::ByteBuffer;
-use huffman::{count_characters, get_leaves, get_heap, encode_contents, Node, BitSeq, rebuild_tree};
+use huffman::{count_characters, get_leaves, get_heap, encode_contents, rebuild_tree};
 use std::time::Instant;
 
 // Encodes a Huffman String to a bytearray
@@ -9,7 +9,7 @@ fn huffman_encode_string(contents: &String) -> ByteBuffer {
 
     let now = Instant::now();
 
-    println!("Total number of characters: {}", contents.len());
+    println!("Total number of characters: {}", contents.chars().count());
 
     // 1. Count characters by frequency
     let map = count_characters(&contents);
@@ -62,9 +62,10 @@ fn huffman_decode_bytes(mut byte_buffer: ByteBuffer) -> String {
 
     let now = Instant::now();
 
-    // 1. Load the Huffman tree structure
-    let mut bit_seq = BitSeq::from_bytes(byte_buffer.read_u32());
-    let mut tree = rebuild_tree(&mut bit_seq, &mut byte_buffer);
+    let len = byte_buffer.read_u32();
+
+    let mut tree = rebuild_tree(&mut byte_buffer);
+    for _i in 0..3 { byte_buffer.flush_bit() };
 
     // 2. Load the characters into the tree
     tree = tree.populate_tree(&mut byte_buffer);
@@ -72,11 +73,7 @@ fn huffman_decode_bytes(mut byte_buffer: ByteBuffer) -> String {
     // 3. Traverse the tree and decode the source file into a string
     let mut out_string = "".to_string();
 
-    bit_seq = BitSeq::from_bytes(byte_buffer.read_u32());
-
-    while byte_buffer.get_rpos() < byte_buffer.len() {
-        tree.decode_bytearray(&mut out_string, &mut bit_seq, &mut byte_buffer);
-    }
+    for _i in 0..len - 1 {tree.decode_bytearray(&mut out_string, &mut byte_buffer)};
 
     println!("Decompressed {}kb file in {}ms", byte_buffer.len() / 1000, now.elapsed().as_millis());
 
@@ -97,7 +94,7 @@ fn main() {
 
     let bytes = fs::read(&output).expect("Failed to open file!");
 
-    let mut byte_buffer = ByteBuffer::from_bytes(&bytes);
+    let byte_buffer = ByteBuffer::from_bytes(&bytes);
 
     let decoded = huffman_decode_bytes(byte_buffer);
 

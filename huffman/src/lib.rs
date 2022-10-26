@@ -94,16 +94,16 @@ impl Node {
     pub fn populate_tree(mut self, byte_buffer: &mut ByteBuffer) -> Self {
 
         // go right
-        if let Some(mut node) = self.r {
+        if let Some(node) = self.r {
             self.r = Some(Box::new(node.populate_tree(byte_buffer)));
         }
 
         // go left
-        if let Some(mut node) = self.l {
+        if let Some(node) = self.l {
             self.l = Some(Box::new(node.populate_tree(byte_buffer)));
         }
 
-        if let Some(c) = self.c {
+        if let Some(_c) = self.c {
             self.c = char::from_u32(byte_buffer.read_u32());
         }
 
@@ -112,7 +112,7 @@ impl Node {
     }
 
     // use bytearray to navigate tree until we reach a leaf
-    pub fn decode_bytearray(&self, output: &mut String, bit_seq: &mut BitSeq, byte_buffer: &mut ByteBuffer) {
+    pub fn decode_bytearray(&self, output: &mut String, byte_buffer: &mut ByteBuffer) {
 
         match self.c {
             Some(c) => {
@@ -120,25 +120,15 @@ impl Node {
             },
             None => {
 
-                let bit;
+                let bit = byte_buffer.read_bit();
     
-                match bit_seq.try_read_bit() {
-                    Some(num) => bit = num,
-                    None => { 
-                        // this should probably be a method
-                        bit_seq.value = byte_buffer.read_u32();
-                        bit_seq.index = 0;
-                        bit = bit_seq.try_read_bit().unwrap();
-                    },
-                }
-    
-                if bit == 1 { // build leaf
+                if bit { // build leaf
                     if let Some(right) = &self.r {
-                        right.decode_bytearray(output, bit_seq, byte_buffer);
+                        right.decode_bytearray(output, byte_buffer);
                     }
                 } else {
                     if let Some(left) = &self.l {
-                        left.decode_bytearray(output, bit_seq, byte_buffer);
+                        left.decode_bytearray(output, byte_buffer);
                     }
                 }
     
@@ -215,29 +205,17 @@ pub fn get_heap(leaves: Vec<Node>) -> BinaryHeap<Reverse<Node>> {
 
 }
 
-// TODO: This feels really messy and inelegant. Is there a better way to do this?
 pub fn encode_contents(binary_string: &String, characters: &String, contents: &String, codes: HashMap<char, String>) -> ByteBuffer {
 
-    let mut bit_buffer : BitSeq = BitSeq::new();
     let mut byte_buffer : ByteBuffer = ByteBuffer::new();
+    
+    // add size to byte buffer
+    byte_buffer.write_u32(contents.chars().count() as u32);
 
     // add tree to byte buffer
-    for bit in binary_string.chars() {
+    binary_string.chars().for_each(|bit| byte_buffer.write_bit(bit == '1'));
 
-        if !bit_buffer.try_add_bit(bit as u32 - 48) {
-
-            // Add the u32 in bit_buffer to some sort of bytearray
-            byte_buffer.write_u32(bit_buffer.value);
-
-            bit_buffer = BitSeq::new();
-
-            bit_buffer.try_add_bit(bit as u32 - 48);
-        }
-        
-    }
-
-    byte_buffer.write_u32(bit_buffer.value);
-    bit_buffer = BitSeq::new();
+    for _i in 0..3 { byte_buffer.flush_bit() };
 
     // add chars to byte buffer
     characters.chars().for_each(|c| byte_buffer.write_u32(c.clone() as u32) );
@@ -246,89 +224,22 @@ pub fn encode_contents(binary_string: &String, characters: &String, contents: &S
     // for char in file
     contents.chars().for_each(|c| {
         let bits = codes.get(&c).unwrap();
-
-        for bit in bits.chars() {
-
-            if !bit_buffer.try_add_bit(bit as u32 - 48) {
-
-                // Add the u32 in bit_buffer to some sort of bytearray
-                byte_buffer.write_u32(bit_buffer.value);
-
-                bit_buffer = BitSeq::new();
-
-                bit_buffer.try_add_bit(bit as u32 - 48);
-            }
-        }
+        bits.chars().for_each(|bit| byte_buffer.write_bit(bit == '1'));
     });
 
-    byte_buffer.write_u32(bit_buffer.value);
-    byte_buffer.write_u32(0); // EOF buffer
+    for _i in 0..3 { byte_buffer.flush_bit() };
     byte_buffer
 
 }
 
-pub fn rebuild_tree(bit_seq: &mut BitSeq, byte_buffer: &mut ByteBuffer) -> Node {
+pub fn rebuild_tree(byte_buffer: &mut ByteBuffer) -> Node {
 
-    let bit;
-
-    match bit_seq.try_read_bit() {
-        Some(num) => bit = num,
-        None => { 
-            // this should probably be a method
-            bit_seq.value = byte_buffer.read_u32();
-            bit_seq.index = 0;
-            bit = bit_seq.try_read_bit().unwrap();
-        },
-    }
-
-    if bit == 1 { // build leaf
+    if byte_buffer.read_bit() { // build leaf
         return Node::leaf(0 as char, 0)
     }
 
-    return Node::node(Some(rebuild_tree(bit_seq, byte_buffer)), Some(rebuild_tree(bit_seq, byte_buffer)))
+    return Node::node(Some(rebuild_tree(byte_buffer)), Some(rebuild_tree(byte_buffer)))
     
-}
-
-// Why use this weird middleman for writing bits into the byte buffer?
-// It's much easier to read/write bytes with some padding.
-// It also makes it easier to test since I know that reading 
-// 8 bytes at a time wont result in some sort of weird data overlap
-// "But muh overhead!" -- writing bits directly to ByteBuffer is the same
-// speed. This is awkward but at least I can debug easier.
-pub struct BitSeq {
-    pub value: u32,
-    pub index: u32,
-}
-
-impl BitSeq {
-    pub fn new() -> BitSeq {
-        BitSeq { value: 0, index: 0 }
-    }
-
-    pub fn from_bytes(bytes: u32) -> BitSeq {
-        BitSeq { value: bytes, index: 0 }
-    }
-
-    // insert bit if space is left
-    pub fn try_add_bit(&mut self, bit : u32) -> bool {
-        if self.index < 32 {
-            if bit == 1 {
-                self.value += bit << self.index;
-            }
-            self.index += 1;
-            return true
-        }
-        false
-    }
-
-    pub fn try_read_bit(&mut self) -> Option<u32> {
-        if self.index < 32 {
-            let bit = Some((self.value >> self.index) & 1);
-            self.index += 1;
-            return bit
-        }
-        None
-    }
 }
 
 #[cfg(test)]
@@ -337,7 +248,7 @@ mod tests {
 
     use bytebuffer::ByteBuffer;
 
-    use crate::{count_characters, get_leaves, get_heap, Node, encode_contents, rebuild_tree, BitSeq};
+    use crate::{count_characters, get_leaves, get_heap, Node, encode_contents, rebuild_tree};
 
     #[test]
     fn test_counting() {
@@ -507,15 +418,22 @@ mod tests {
         heap.peek().unwrap().0.save_tree(&mut binary_string);
 
         let mut byte_buffer: ByteBuffer = encode_contents(&binary_string, &characters, &contents, codes);
+
         let mut byte;
 
-        // 4 (tree) + 4 * 3 (chars) + 4 (data) + 4 (padding) = 24 bytes
-        assert_eq!(24, byte_buffer.len());
-        
-        // tree 00111 -> 28
+        // 4 (length) + 1 (tree) + 4 * 3 (chars) + 2 (data) = 19 bytes
+        println!("{:?}", byte_buffer.to_bytes());
+        assert_eq!(19, byte_buffer.len());
+
+        // tree 00111 -> 7 LE
         byte = byte_buffer.read_u32();
 
-        assert_eq!(28, byte);
+        assert_eq!(7, byte);
+        
+        // tree 00111 -> 7 LE
+        let mut byte_8 = byte_buffer.read_u8();
+
+        assert_eq!(56, byte_8);
 
         // chars 'o', 'a', 'm'
         byte = byte_buffer.read_u32();
@@ -530,42 +448,14 @@ mod tests {
 
         assert_eq!('m' as u32, byte);
 
-        // text 0000101011 -> 336
-        byte = byte_buffer.read_u32();
+        // text 0000 1010 11 -> 10, 192
+        byte_8 = byte_buffer.read_u8();
 
-        assert_eq!(848, byte);
+        assert_eq!(10, byte_8);
 
-        // hard tree
-        let contents = "ll tt oo aa".to_string();
-        let map = count_characters(&contents);
-        let leaves = get_leaves(map);
-        let heap = get_heap(leaves);
-        let mut characters: String = "".to_string();
-        heap.peek().unwrap().0.get_character_order(&mut characters);
-        let mut codes: HashMap<char, String> = HashMap::new();
-        heap.peek().unwrap().0.get_codes("".to_string(), &mut codes);
-        let mut binary_string = "".to_string();
-        heap.peek().unwrap().0.save_tree(&mut binary_string);
+        byte_8 = byte_buffer.read_u8();
 
-        let mut byte_buffer: ByteBuffer = encode_contents(&binary_string, &characters, &contents, codes);
-        let mut byte;
-
-
-
-        // 4 (tree) + 4 * 5 (chars) + 4 (data) + 4 (padding) = 32 bytes
-        assert_eq!(32, byte_buffer.len());
-        
-        // tree 001101011 -> 428
-        byte = byte_buffer.read_u32();
-
-        assert_eq!(428, byte);
-
-        // chars '?', '?', ' ', '?', '?'
-        byte = byte_buffer.read_u32();
-        byte = byte_buffer.read_u32();
-        byte = byte_buffer.read_u32();
-
-        assert_eq!(' ' as u32, byte);
+        assert_eq!(192, byte_8);
 
     }
 
@@ -583,12 +473,12 @@ mod tests {
                   a, 2      o, 1
         */
 
-        let bytes = [ 0, 0, 0, 28, 0, 0, 0, 'o' as u8, 0, 0, 0, 'a' as u8, 0, 0, 0, 'm' as u8 ];
+        let bytes = [0, 0, 0, 7, 56, 0, 0, 0, 'o' as u8, 0, 0, 0, 'a' as u8, 0, 0, 0, 'm' as u8];
 
         let mut byte_buffer = ByteBuffer::new();
         byte_buffer.write_bytes(&bytes);
-        let mut bit_seq = BitSeq::from_bytes(byte_buffer.read_u32());
-        let mut root = rebuild_tree(&mut bit_seq, &mut byte_buffer);
+        let size = byte_buffer.read_u32();
+        let mut root = rebuild_tree(&mut byte_buffer);
         root = root.populate_tree(&mut byte_buffer);
 
         assert!(root.c.is_none());
@@ -604,52 +494,6 @@ mod tests {
 
         let right_right = right.r.as_ref().unwrap();
         assert_eq!('o', right_right.c.unwrap());
-
-        /*
-                    Test that tree shape is:
-
-                        None, 11
-                        /       \
-                None, 7       None, 4
-                /    \      /       \
-            None, 4   ' '  o, 2      a, 2
-            /     \
-          l, 2    t, 2
-        */
-
-        let bytes = [ 0, 0, 1, 172, 0, 0, 0, 'a' as u8, 0, 0, 0, 'o' as u8, 0, 0, 0, ' ' as u8, 0, 0, 0, 'l' as u8, 0, 0, 0, 't' as u8 ];
-
-        let mut byte_buffer = ByteBuffer::new();
-        byte_buffer.write_bytes(&bytes);
-        let mut bit_seq = BitSeq::from_bytes(byte_buffer.read_u32());
-        let mut root = rebuild_tree(&mut bit_seq, &mut byte_buffer);
-        root = root.populate_tree(&mut byte_buffer);
-
-        assert!(root.c.is_none());
-
-        let right = root.r.as_ref().unwrap();
-        assert!(right.c.is_none());
-
-        let left = root.l.as_ref().unwrap();
-        assert!(left.c.is_none());
-
-        let right_right = right.r.as_ref().unwrap();
-        assert_eq!('a', right_right.c.unwrap());
-
-        let right_left = right.l.as_ref().unwrap();
-        assert_eq!('o', right_left.c.unwrap());
-
-        let left_right = left.r.as_ref().unwrap();
-        assert_eq!(' ', left_right.c.unwrap());
-
-        let left_left = left.l.as_ref().unwrap();
-        assert!(left_left.c.is_none());
-
-        let left_left_right = left_left.r.as_ref().unwrap();
-        assert_eq!('l', left_left_right.c.unwrap());
-
-        let left_left_left = left_left.l.as_ref().unwrap();
-        assert_eq!('t', left_left_left.c.unwrap());
 
     }
 
