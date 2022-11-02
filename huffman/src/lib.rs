@@ -1,3 +1,7 @@
+//! # Huffman Library
+//! 
+//! Contains functions for Huffman encoding and deocding files.
+
 pub mod node;
 pub mod utils;
 
@@ -6,7 +10,15 @@ use bytebuffer::ByteBuffer;
 use fxhash::FxHashMap;
 use crate::utils::{count_characters, get_leaves, get_heap, encode_contents, rebuild_tree };
 
-// Encodes a Huffman String to a bytearray
+/// Uses Huffman encoding to compress a string.
+/// Outputs a ByteBuffer containing Huffman tree and encoded text.
+/// 
+/// # Examples
+/// 
+/// ```
+/// let str_to_encode = "The cake is a lie!".to_string();
+/// let bytes = huffman::encode(&str_to_encode);
+/// ```
 pub fn encode(contents: &String) -> ByteBuffer {
 
     let now = Instant::now();
@@ -41,7 +53,7 @@ pub fn encode(contents: &String) -> ByteBuffer {
 
 }
 
-// Decodes a bytearray containing the tree and compressed data
+/// Decodes a ByteBuffer of Huffman encoded data into a string.
 pub fn decode(mut byte_buffer: ByteBuffer) -> String {
 
     let now = Instant::now();
