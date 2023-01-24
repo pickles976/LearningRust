@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <meta charset="utf-8" />
+    <title>hello-wasm example</title>
+    <script src="https://pagecdn.io/lib/mathjs/11.0.1/math.min.js" crossorigin="anonymous"  ></script>
+  </head>
+  <body>
+    <script type="module">
+      import init, { InverseKinematics } from "./pkg/stateful_wasm.js";
+
+      await init()
+      const ik = InverseKinematics.new(15, 3.14)
+
+      console.log(ik)
+      console.log(ik.solve())
+    </script>
+  </body>
+</html>

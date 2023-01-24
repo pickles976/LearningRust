@@ -1,9 +1,7 @@
 use wasm_bindgen::prelude::*;
 use serde::{Serialize, Deserialize};
 extern crate nalgebra as na;
-use na::Vector3;
-
-#[cfg(feature = "nalgebra/serde-serialize")]
+use na::{Vector3, Matrix4};
 
 #[derive(Serialize, Deserialize, Debug)]
 struct Position<T> {
@@ -20,7 +18,15 @@ extern {
 #[wasm_bindgen]
 pub fn greet(val: &str) {
 
-    let point: Vec<Vector3<f32>> = serde_json::from_str(val).unwrap();
+    const target: Matrix4<f32> = Matrix4::new(  
+        1.0,0.0,0.0,5.0,
+        0.0,1.0,0.0,5.0,
+        0.0,0.0,1.0,7.0,
+        0.0,0.0,0.0,1.0  
+    );
 
-    alert(&format!("Hello, {:?}!", point));
+    // let point: Vec<Vector3<f32>> = serde_json::from_str(val).unwrap();
+    let mat: String = serde_json::to_string(&target).unwrap();
+
+    alert(&format!("Hello, {:?}!", mat));
 }
