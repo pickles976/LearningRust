@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <meta charset="utf-8" />
+    <title>hello-wasm example</title>
+  </head>
+  <body>
+    <script type="module">
+      import init, { greet } from "./pkg/serde_test.js";
+
+      // let json = JSON.stringify({"x":0.0,"y":2.3,"z":3.4})
+      let json = JSON.stringify([[0.0,2.3,3.4],[0.0, 2.0, 1.0]])
+
+      init().then(() => {
+        greet(json);
+      });
+    </script>
+  </body>
+</html>
