@@ -3,12 +3,37 @@
   <head>
     <meta charset="utf-8" />
     <title>hello-wasm example</title>
+    <script src="https://pagecdn.io/lib/mathjs/11.0.1/math.min.js" crossorigin="anonymous"  ></script>
   </head>
   <body>
     <script type="module">
-      import init, { greet } from "./pkg/hello_wasm.js";
+      import init, { greet, print_array, print_matrix } from "./pkg/hello_wasm.js";
+
+      const ORIGIN = math.matrix([
+          [1, 0, 0, 3],
+          [0, 1, 0, 4],
+          [0, 0, 1, 5],
+          [0, 0, 0, 1]
+      ])
+
+      function to_array(in_matrix) {
+          let dim = in_matrix.size()
+
+          let arr = []
+
+          for (let i = 0; i < dim[0]; i++) {
+              for (let j = 0; j < dim[1]; j++) {
+                  arr.push(in_matrix.get([i, j]))
+              }
+          }
+
+          return arr
+      }
+
+      // console.log(to_array(ORIGIN))
+
       init().then(() => {
-        greet("WebAssembly");
+        print_matrix(to_array(ORIGIN));
       });
     </script>
   </body>
