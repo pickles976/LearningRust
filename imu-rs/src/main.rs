@@ -60,7 +60,7 @@ fn main() -> ! {
 
         writeln!(
             UsbSerialJtag,
-            "{{ \"ACCEL\": {{ \"X\": {:.04}, \"Y\": {:.04}, \"Z\": {:.04} }}, \"GYRO\": {{ \"X\": {:.04}, \"Y\": {:.04}, \"Z\": {:.04} }} }}",
+            "{{\"A\":{{\"X\":{:.03},\"Y\":{:.03},\"Z\":{:.03} }},\"G\":{{\"X\":{:.03},\"Y\":{:.03},\"Z\":{:.03}}}}}",
             accel_norm.x, accel_norm.y, accel_norm.z, gyro_norm.x, gyro_norm.y, gyro_norm.z
         )
         .ok();
