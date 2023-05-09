@@ -12,23 +12,15 @@ from sklearn.linear_model import LinearRegression
 ROTATION_AXIS = "Z"
 FORWARD_AXIS = "X"
 
-IMU_HZ = 1000.0
-dt = 1 / IMU_HZ
-epsilon = 0.005
-# print(dt)
+dt = 0
 start = time.time()
 elapsed = 0
 
 coeff = 0
 bias = 0
 
-def integrate_rotation(data, dt):
-    angular_z = data["G"][ROTATION_AXIS]
-    return angular_z * dt
-
 def integrate_velocity(data, dt):
     acc = data["A"][FORWARD_AXIS] * 9.81 #g's to m/s^2
-    print(acc * dt)
     return acc * dt
 
 def integrate_position(position, angle, velocity, dt):
@@ -63,13 +55,11 @@ while True:
     if "G" in imu_data:
         dt = time.time() - start # time since last measurement
         elapsed += dt
-        a = imu_data["A"][FORWARD_AXIS] * 9.81 #g's to m/s^2
-        velocity += a * dt
-        # velocity = a
-        print(a)
+        start = time.time()
+        velocity += integrate_velocity(imu_data, dt)
+        print(velocity)
         velocity_measurements.append(velocity)
         time_measurements.append(elapsed)
-        start = time.time()
 
     if elapsed > 3.0:
         break
@@ -89,8 +79,9 @@ print(coef)
 
 # exit()
 
-angle = 0
 velocity = 0
+elapsed = 0
+
 position = [0,0]
 
 start = time.time()
@@ -107,12 +98,12 @@ while True:
     if "G" in imu_data:
         dt = time.time() - start # time since last measurement
         elapsed += dt
-        angle = angle + integrate_rotation(imu_data, dt)
-        velocity = velocity + integrate_velocity(imu_data, dt)
-        corrected_vel = velocity - ((elapsed * coeff) + bias)
-        print(corrected_vel)
-        # position = integrate_position(position, angle, corrected_vel, dt)
         start = time.time()
+        velocity += integrate_velocity(imu_data, dt)
+        corrected_velocity = velocity - ((elapsed * coef) + bias)
+
+        # ONLY START INTEGRATING POSITION IF MESSAGES ARE COMING IN
+        # position = integrate_position(position, angle, corrected_vel, dt)
         # print(position)
         
 ser.close()             # close port
